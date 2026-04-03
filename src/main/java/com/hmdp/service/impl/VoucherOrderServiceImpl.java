@@ -21,6 +21,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +57,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private RedissonClient redissonClient;
-
+    @Resource
+    private KafkaTemplate kafkaTemplate;
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     static {
         SECKILL_SCRIPT = new DefaultRedisScript<>();
@@ -207,7 +209,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
         //获取当前线程对象，异步通过消息队列执行保存订单需求
         proxy = (IVoucherOrderService) AopContext.currentProxy();
-
+        //创建一个订单
+        VoucherOrder voucherOrder=new VoucherOrder();
+        //设置订单id
+        voucherOrder.setId(orderId);
+        //设置用户ID
+        voucherOrder.setUserId(userId);
+        //设置代金劵id
+        voucherOrder.setVoucherId(voucherId);
+        //使用kafka消息队列异步执行保存扣减库存订单需求
+        kafkaTemplate.send("voucher-orders",  voucherOrder);
         //返回订单ID
         return Result.ok(orderId);
     }
@@ -329,7 +340,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 .eq("voucher_id", voucherId)
                 .gt("stock", 0)
                 .update();
-        //5.4保存订单
+        //5.4保存订单 到数据库中
         save(voucherOrder);
     }
 }
