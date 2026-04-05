@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 
 @Component
-@KafkaListener(topics = "voucher-orders",groupId = "voucher-order-group")
+
 public class VoucherOrderConsumer {
 
     @Resource
@@ -21,7 +21,7 @@ public class VoucherOrderConsumer {
     @Resource
     private RedissonClient redissonClient;
 
-    @KafkaHandler
+    @KafkaListener(topics = "coupon-order-topic",groupId = "coupon-order-group")
     public void handlerVoucherOrder(VoucherOrder voucherOrder){
         //获取用户id
         Long userId = voucherOrder.getUserId();

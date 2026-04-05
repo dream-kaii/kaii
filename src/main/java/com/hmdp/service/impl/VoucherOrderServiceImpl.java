@@ -55,10 +55,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedisIdWorker redisIdWorker;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
     @Resource
-    private RedissonClient redissonClient;
-    @Resource
-    private KafkaTemplate kafkaTemplate;
+    private com.hmdp.mapper.kafka.VoucherOrderProducer voucherOrderProducer;
+
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     static {
         SECKILL_SCRIPT = new DefaultRedisScript<>();
@@ -70,12 +70,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     //创建一个单线程的异步处理池，用来处理创建订单
     private static final ExecutorService SECKILL_ORDER_EXECUTOR= Executors.newSingleThreadExecutor();
     //在类初始化时会执行这个方法 然后用线程池提交阻塞队列处理订单
-    @PostConstruct
+    /*@PostConstruct
     public void init(){
         SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
-    }
+    }*/
 
-    private class VoucherOrderHandler implements Runnable{
+   /* private class VoucherOrderHandler implements Runnable{
         private final String queueName="stream.orders";
         @Override
         public void run() {
@@ -106,9 +106,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 }
 
             }
-        }
+        }*/
 
-        private void handlerPendingList()  {
+        /*private void handlerPendingList()  {
             //队列中报异常后去pendingList中查询是否有消费未处理的信息
             while (true){
                 try {
@@ -145,7 +145,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
 
-    }
+    }*/
    /* private class VoucherOrderHandler implements Runnable{
 
         @Override
@@ -164,7 +164,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 
     }*/
-    private IVoucherOrderService proxy;
+    /*private IVoucherOrderService proxy;
     public void handlerVoucherOrder(VoucherOrder voucherOrder) {
         //获取用户ID
         Long userId = voucherOrder.getUserId();
@@ -187,7 +187,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             lock.unlock();
         }
 
-    }
+    }*/
     @Override
     public Result seckillVoucher(Long voucherId) {
         Long userId = UserHolder.getUser().getId();
@@ -208,8 +208,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail(r==1 ? "库存不足" : "不能重复下单");
         }
         //获取当前线程对象，异步通过消息队列执行保存订单需求
-        proxy = (IVoucherOrderService) AopContext.currentProxy();
-        //创建一个订单
+//        //创建一个订单
         VoucherOrder voucherOrder=new VoucherOrder();
         //设置订单id
         voucherOrder.setId(orderId);
@@ -218,7 +217,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         //设置代金劵id
         voucherOrder.setVoucherId(voucherId);
         //使用kafka消息队列异步执行保存扣减库存订单需求
-        kafkaTemplate.send("voucher-orders",  voucherOrder);
+        //kafkaTemplate.send("voucher-orders",  voucherOrder);
+
+        voucherOrderProducer.sendCouponOrder(userId,orderId,voucherId);
         //返回订单ID
         return Result.ok(orderId);
     }
